@@ -34,7 +34,10 @@ def parse_vtt(vtt_path) -> List[Dict[str, Union[float, str]]]:
             for subtitle in webvtt.read(vtt_path):
                 text = subtitle.text.strip()
                 if not text or text.startswith('[') and text.endswith(']'): continue # Skip non-verbal like [Music]
-                start_sec, end_sec = subtitle.start_in_seconds, subtitle.end_in_seconds
+                # webvtt-py 0.5.x `*_in_seconds` TRUNCATES to whole integer seconds (00:00:06.160 -> 6), which quantizes every 
+                # GT boundary to 1s granularity (up to 12 frames @ 12.5fps). Parse the canonical HH:MM:SS.mmm strings instead 
+                # to keep millisecond precision.
+                start_sec, end_sec = time_to_seconds(subtitle.start), time_to_seconds(subtitle.end)
                 if start_sec >= end_sec: continue # Invalid timing
                 if text: subtitles.append({'start': start_sec, 'end': end_sec, 'text': text, 'duration': end_sec - start_sec})
         else:

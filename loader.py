@@ -97,24 +97,30 @@ class DVCDataset(Dataset):
                 'subtitles': parse_vtt(VTT_DIR / f'{video_id}.vtt')
             }
             if self.split != 'train': # For val/test: count fixed, overlapping windows
-                for window_start_frame in range(0, total_frames, self.stride):
-                    window_end_frame = window_start_frame + self.window_size_frames
-                    
-                    if window_end_frame <= total_frames: # Ignore the last, smaller window if it's too short
-                        valid_events_count = 0 # Count valid events fully contained in a window (used for val filtering)
-                        for sub in self.video_metadata[video_id]['subtitles']:
-                            sub_start_frame = int(sub['start'] * FPS)
-                            sub_end_frame = int(sub['end'] * FPS)
-                            if sub_start_frame >= window_start_frame and sub_end_frame <= window_end_frame and \
-                                MIN_SUB_DURATION <= sub['duration'] <= MAX_SUB_DURATION:
-                                valid_events_count += 1
+                # Window starts: fixed stride, PLUS full right-edge coverage: Short streams get 1 window covering the whole stream (padded downstream), 
+                # and longer streams get a final right-aligned window [T - W, T] when the stride grid stops short of the stream end.
+                if total_frames <= self.window_size_frames:bwindow_starts = [0]
+                else:
+                    window_starts = [s for s in range(0, total_frames, self.stride)bif s + self.window_size_frames <= total_frames]
+                    if not window_starts or window_starts[-1] + self.window_size_frames < total_frames:
+                        window_starts.append(total_frames - self.window_size_frames)
+                        
+                for window_start_frame in window_starts:
+                    window_end_frame = min(window_start_frame + self.window_size_frames, total_frames)
+                    valid_events_count = 0 # Count valid events fully contained in a window (used for val filtering)
+                    for sub in self.video_metadata[video_id]['subtitles']:
+                        sub_start_frame = int(round(sub['start'] * FPS))
+                        sub_end_frame = int(round(sub['end'] * FPS))
+                        if sub_start_frame >= window_start_frame and sub_end_frame <= window_end_frame and \
+                            MIN_SUB_DURATION <= sub['duration'] <= MAX_SUB_DURATION:
+                            valid_events_count += 1
                                 
-                        if valid_events_count < self.min_events or valid_events_count > self.max_events: continue
-                        self.eval_windows.append({
-                            'video_id': video_id,
-                            'window_start_frame': window_start_frame,
-                            'window_end_frame': window_end_frame
-                        })
+                    if valid_events_count < self.min_events or valid_events_count > self.max_events: continue
+                    self.eval_windows.append({
+                        'video_id': video_id,
+                        'window_start_frame': window_start_frame,
+                        'window_end_frame': window_end_frame
+                    })
 
     def __len__(self):
         if self.split == 'train': return len(self.video_metadata) # For train: One per video (sampling random per getitem call)
@@ -225,8 +231,8 @@ class DVCDataset(Dataset):
         labels = {'class_labels': [], 'boxes': [], 'seq_tokens': [], 'paragraph_tokens': '', 'masked_paragraph_tokens': ''}
         for sub in self.video_metadata[video_id]['subtitles']:
             if len(labels['class_labels']) >= self.max_events: break # Truncate to max_events
-            sub_start_frame = int(sub['start'] * FPS)
-            sub_end_frame = int(sub['end'] * FPS)
+            sub_start_frame = int(round(sub['start'] * FPS))
+            sub_end_frame = int(round(sub['end'] * FPS))
 
             # Subtitle must be FULLY contained within the window and have valid duration
             if sub_start_frame >= window_start_frame and sub_end_frame <= window_end_frame and \
@@ -299,8 +305,8 @@ class DVCDataset(Dataset):
         windows. Uses only precomputed metadata (no pose loading).'''
         count = 0
         for sub in self.video_metadata[video_id]['subtitles']:
-            sub_start_frame = int(sub['start'] * FPS)
-            sub_end_frame = int(sub['end'] * FPS)
+            sub_start_frame = int(round(sub['start'] * FPS))
+            sub_end_frame = int(round(sub['end'] * FPS))
             if sub_start_frame >= window_start_frame and sub_end_frame <= window_end_frame and \
                 MIN_SUB_DURATION <= sub['duration'] <= MAX_SUB_DURATION:
                 count += 1
@@ -320,8 +326,8 @@ class DVCDataset(Dataset):
         events = [] # Collect valid events (consistent with label filtering)
         for sub in self.video_metadata[video_id]['subtitles']:
             if MIN_SUB_DURATION <= sub['duration'] <= MAX_SUB_DURATION:
-                sub_start_frame = int(sub['start'] * FPS)
-                sub_end_frame = int(sub['end'] * FPS)
+                sub_start_frame = int(round(sub['start'] * FPS))
+                sub_end_frame = int(round(sub['end'] * FPS))
                 # Clamp to video bounds
                 sub_start_frame = max(0, min(sub_start_frame, total))
                 sub_end_frame = max(0, min(sub_end_frame, total))
