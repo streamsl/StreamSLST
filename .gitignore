@@ -4,8 +4,10 @@ captioners/trimmed_*
 pdvc/
 DWPose/
 backup/
+checkpoints/
+stats/
 *.zip
-*.mp4
 *.pt
 *.safetensors
 .DS_Store
+rebuttal*/

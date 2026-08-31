@@ -80,6 +80,15 @@ elif DATASET == 'H2S':
                   'splits': {'train': 'train', 'test': 'test'}}  # no 'val' key by design
 else: raise ValueError(f"Unknown DATASET={DATASET!r}; expected one of BOBSL/PHOENIX/CSL/H2S")
 
+# Optional data-root override for drop-in-layout variants of the active dataset (e.g. the clip-level baseline). Everything else -- tokenizer, language, fps, 
+# canvas -- stays as configured by DATASET above.
+if os.environ.get('SLT_DATA_ROOT'):
+    DATA_ROOT = Path(os.environ['SLT_DATA_ROOT'])
+    POSE_ROOT = DATA_ROOT / 'poses'
+    SUBSET_JSON = DATA_ROOT / 'subset2episode.json'
+    VTT_DIR = DATA_ROOT / 'vtt'
+if os.environ.get('SLT_FPS'): FPS = float(os.environ['SLT_FPS']) # e.g. SLT_FPS=25 for the full-frame-rate clip ablation
+
 # MSKA checkpoint auto-resolution per dataset. Override with MSKA_CKPT env var.
 _MSKA_CKPT_DEFAULTS = {'PHOENIX': 'checkpoints/mska_phoenix.pth', 'CSL':     'checkpoints/mska_csl.pth'}
 MSKA_CKPT = os.environ.get('MSKA_CKPT', _MSKA_CKPT_DEFAULTS.get(DATASET, ''))

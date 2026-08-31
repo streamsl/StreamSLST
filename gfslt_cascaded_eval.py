@@ -15,14 +15,12 @@ The pipeline computes:
     --eval_test
 '''
 import gc, os, json
-import numpy as np
 
 from tqdm import tqdm
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, DeformableDetrConfig, HfArgumentParser
 
@@ -86,6 +84,9 @@ class EvalArguments: # Arguments for evaluation
     gfslt_max_new_tokens: int = field(default=40)
     gfslt_num_beams: int = field(default=1)
     skip_gfslt: bool = field(default=False, metadata={'help': 'Skip GFSLT captioning for fast localization-only eval'})
+    use_gt_boxes: bool = field(
+        default=False, metadata={'help': 'Feed GROUND-TRUTH segments to the GFSLT translator instead of DETR predictions (oracle-boundary cascade)'}
+    )
     max_events_per_window: int = field(default=20, metadata={'help': 'Max events per window to caption (for speed)'})
     use_fp16: bool = field(default=False, metadata={'help': 'Use FP16 for faster inference'})
     aggregation_mode: str = field(default='video', metadata={
@@ -133,7 +134,7 @@ class MultiStageEvaluator:
         detection_threshold: float = 0.1, max_new_tokens: int = 64,
         num_beams: int = 1, skip_gfslt: bool = False,
         max_events_per_window: int = 5, use_fp16: bool = True,
-        aggregation_mode: str = 'video',
+        aggregation_mode: str = 'video', use_gt_boxes: bool = False,
     ):
         self.detr_model = detr_model.eval().to(device)
         self.gfslt_model = gfslt_model.eval().to(device) if not skip_gfslt else None
@@ -151,6 +152,7 @@ class MultiStageEvaluator:
         self.max_new_tokens = max_new_tokens
         self.num_beams = num_beams
         self.skip_gfslt = skip_gfslt
+        self.use_gt_boxes = use_gt_boxes
         self.max_events_per_window = max_events_per_window
         self.use_fp16 = use_fp16
         self.aggregation_mode = aggregation_mode
@@ -334,6 +336,17 @@ class MultiStageEvaluator:
             
             # Stage 1: DETR localization
             detr_results = self.predict_detr_localizations(batch)
+
+            # Oracle-boundary mode: hand the translator the GROUND-TRUTH segments instead of the DETR predictions. This turns the cascade 
+            # into the pre-segmented setting under our exact input pipeline (pose, half frame rate, trimmed mBART), so the remaining gap to 
+            # published pre-segmented systems isolates the translation-setup difference from the boundary-discovery difficulty.
+            if self.use_gt_boxes:
+                gt_ev_override, _ = extract_gt_per_window(labels, self.detr_tokenizer)
+                for i, ge in enumerate(gt_ev_override):
+                    valid_frames = batch['pixel_mask'][i].sum().item()
+                    detr_results[i]['event_ranges_normalized'] = ge
+                    detr_results[i]['event_ranges_frames'] = [(int(gs * valid_frames), int(gend * valid_frames)) for gs, gend in ge]
+                    detr_results[i]['detr_captions'] = [''] * len(ge)
             
             # Stage 2: Collect ALL events from ALL windows for batch GFSLT processing
             # Track per-event validity so captions stay aligned even when some events are
@@ -538,6 +551,7 @@ def main():
         max_events_per_window=eval_args.max_events_per_window,
         use_fp16=eval_args.use_fp16,
         aggregation_mode=eval_args.aggregation_mode,
+        use_gt_boxes=eval_args.use_gt_boxes,
     )
     os.makedirs(eval_args.output_dir, exist_ok=True) # Create output directory
     

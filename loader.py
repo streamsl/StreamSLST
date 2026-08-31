@@ -1,3 +1,4 @@
+import os
 import json
 import torch
 import numpy as np
@@ -213,6 +214,13 @@ class DVCDataset(Dataset):
         else:
             frame_mask = torch.ones(self.window_size_frames, dtype=torch.bool)
 
+        # Opt-in, off by default. Clip-level drop-in datasets pre-pad each sample to the full window with all-zero frames so 
+        # that one clip becomes exactly 1 window. Those frames contain no signer, so exclude them from the attention mask 
+        # rather than letting the encoder attend to them as if they were signing content..
+        if os.environ.get('SLT_MASK_ZERO_FRAMES'):
+            nonzero = np.abs(np.asarray(window_poses)).sum(axis=(1, 2)) > 0
+            frame_mask = frame_mask & torch.from_numpy(nonzero)
+
         # Filter subtitles in window and build model-ready labels
         labels = {'class_labels': [], 'boxes': [], 'seq_tokens': [], 'paragraph_tokens': '', 'masked_paragraph_tokens': ''}
         for sub in self.video_metadata[video_id]['subtitles']:
@@ -297,6 +305,7 @@ class DVCDataset(Dataset):
                 MIN_SUB_DURATION <= sub['duration'] <= MAX_SUB_DURATION:
                 count += 1
         return count
+
 
     def _sample_densest_window(self, video_id):
         ''' Fallback sampler:

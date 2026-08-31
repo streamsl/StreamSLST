@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -77,7 +78,10 @@ class MBartDecoderCaptioner(nn.Module):
             visual_features: (B, Q, D) - aggregated visual features
         '''
         batch_size, num_queries, n_levels, _ = reference_points.shape
-        
+        if os.environ.get('SLT_NO_VISUAL'):
+            enc = transformer_outputs['encoder_last_hidden_state']
+            return torch.zeros(batch_size, num_queries, self.config.d_model, device=enc.device, dtype=enc.dtype)
+
         # Get encoder hidden states - this contains the visual features from the backbone
         encoder_hidden_states = transformer_outputs['encoder_last_hidden_state']  # (B, T, D)
         temporal_shapes = transformer_outputs['temporal_shapes']  # (n_levels, 1)
