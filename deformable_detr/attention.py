@@ -141,7 +141,7 @@ class TemporalMSDA(nn.Module):
         
         sampling_locations = reference_points[:, :, None, :, None, 0] # (batch_size, num_queries, 1, n_levels, 1)
         if reference_points.shape[-1] == 1:
-            # sampling_locations += sampling_offsets / temporal_shapes[None, None, None, :, None] # Broadcasting will be wrong if doing this
+            # (B, Q, 1, L, 1) + (B, Q, H, L, P) offsets -> (B, Q, H, L, P) sampling locations
             sampling_locations = sampling_locations + sampling_offsets / temporal_shapes[None, None, None, :, None]
         elif reference_points.shape[-1] == 2:
             sampling_locations = sampling_locations + sampling_offsets / self.n_points * reference_points[:, :, None, :, None, 1] * 0.5

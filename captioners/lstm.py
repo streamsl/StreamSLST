@@ -152,8 +152,8 @@ class LSTMCaptioner(nn.Module):
                     )
                 token = token.detach()
 
-            if i >= 1 and ((seq_tokens[:, i] == self.pad_token_id) | (seq_tokens[:, i] == self.eos_token_id)).all(): 
-                break # Break if all sequences reach <EOS> or <PAD>
+            # Stop once every input is <PAD>: the step after an input </s> predicts the language code (mBART layout [..., </s>, lang]).
+            if i >= 1 and (seq_tokens[:, i] == self.pad_token_id).all(): break
             
             output, state = self.get_log_probs_state(token, state, decoder_hidden_states, reference_points, transformer_outputs)
             outputs.append(output) # (B*Q, vocab_size)

@@ -16,7 +16,6 @@ Reports per split:
 Usage:
     DATASET=PHOENIX python -m data_synth.dataset_stats --root data/synth/phoenix --out data_synth/stats/phoenix_stats.json
     DATASET=CSL     python -m data_synth.dataset_stats --root data/synth/csl     --out data_synth/stats/csl_stats.json
-    DATASET=H2S     python -m data_synth.dataset_stats --root data/synth/h2s     --out data_synth/stats/h2s_stats.json
 
 If both manifest.json and per-stream pose .npy files exist, the script also reports the BOBSL-style
 "signing density" (frac of frames that fall inside any cue) computed exactly from the cues.
@@ -70,10 +69,8 @@ def stats_for_split(root: Path, split: str, ids: List[str], bpe_tokenizer=None) 
     bpe_seen: set = set()
     bpe_total_tokens = 0
 
-    for sid in ids: # Stream length: support both flat layout (poses/<sid>.npy) and BOBSL dir layout (poses/<sid>/000.npy)
-        flat = root / 'poses' / f'{sid}.npy'
-        nested = root / 'poses' / sid / '000.npy'
-        pose_path = flat if flat.exists() else nested
+    for sid in ids: # Stream length from the flat pose file poses/<sid>.npy
+        pose_path = root / 'poses' / f'{sid}.npy'
         try: T = int(np.load(pose_path, mmap_mode='r').shape[0])
         except Exception: continue
         
@@ -145,9 +142,7 @@ def main():
     sub = json.loads((root / 'subset2episode.json').read_text())
     manifest = json.loads((root / 'manifest.json').read_text())
 
-    # signers per split (from manifest provenance). PHOENIX/CSL synth records each stream's
-    # signer ID; H2S has no signer concept (groups by VIDEO_ID), so the .get('signer')
-    # entries are missing and `n_signers` rolls up to 0 — that's intentional and correct.
+    # signers per split (from manifest provenance): PHOENIX/CSL synth records each stream's signer ID.
     signers_per_split: Dict[str, set] = {'train': set(), 'val': set(), 'test': set()}
     if 'streams' in manifest:
         for split, lst in manifest['streams'].items():

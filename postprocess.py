@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch import Tensor, TensorType
+from torch import TensorType
 from transformers import AutoTokenizer
 from typing import Union
 from utils import cw_to_se

@@ -36,10 +36,7 @@ class STGCN_block(nn.Module):
         super().__init__()
         assert len(kernel_sizes) == 2
         assert kernel_sizes[0] % 2 == 1
-        self.gcn = GCN_unit(
-            in_channels, out_channels, kernel_sizes[1], A, adaptive, 
-            # t_kernel_size=kernel_sizes[0], t_stride=stride, t_padding=(kernel_sizes[0] - 1) // 2
-        )
+        self.gcn = GCN_unit(in_channels, out_channels, kernel_sizes[1], A, adaptive)
         if kernel_sizes[0] > 1: # temporal_kernel
             self.tcn = nn.Sequential(
                 nn.Conv2d(

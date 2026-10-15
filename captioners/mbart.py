@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from typing import Optional
 from transformers import DeformableDetrConfig, MBartConfig, MBartForCausalLM
 from transformers.models.mbart.modeling_mbart import shift_tokens_right
+from transformers.cache_utils import DynamicCache, EncoderDecoderCache
 
 import sys
 from pathlib import Path
@@ -226,6 +227,8 @@ class MBartDecoderCaptioner(nn.Module):
             eos_token_id=self.eos_token_id,
             pad_token_id=self.pad_token_id,
             decoder_start_token_id=self.decoder_start_token_id,
+            # A two-part cache: self-attention keys/values in the first part, cross-attention keys/values in the second.
+            past_key_values=EncoderDecoderCache(DynamicCache(), DynamicCache()),
             return_dict_in_generate=True, output_scores=True,
         )
 

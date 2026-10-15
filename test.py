@@ -83,7 +83,7 @@ def debug_query_variance(model, pixel_values, pixel_mask):
     
     # Check reference points across queries
     ref_points = out.intermediate_reference_points[:, -1]  # (B, Q, 2)
-    print(f"\nReference points per query:")
+    print("\nReference points per query:")
     for b in range(B):
         print(f"  Batch {b}: {ref_points[b].tolist()}")
     
@@ -97,7 +97,6 @@ def debug_query_variance(model, pixel_values, pixel_mask):
 
 def debug_encoder_layers(model, pixel_values, pixel_mask):
     # Debug encoder variance step-by-step to find where variance collapses
-    B = pixel_values.shape[0]
     device = pixel_values.device
     transformer = model.transformer
     config = model.config
@@ -112,7 +111,6 @@ def debug_encoder_layers(model, pixel_values, pixel_mask):
     print(f"[1] Backbone output variance: {(backbone_out[0] - backbone_out[1:]).abs().mean().item():.6f}")
     
     # 2. Build multi-scale features like the model does
-    C, T = backbone_out.shape[1], backbone_out.shape[2]
     pos_level0 = transformer.position_embeddings(backbone_out, pixel_mask, durations=torch.sum(pixel_mask, 1))
     source_level0 = transformer.input_proj[0](backbone_out)
     mask_level0 = pixel_mask.to(torch.bool)

@@ -1,6 +1,5 @@
 import torch
-import torch.nn.functional as F
-from torch import nn, Tensor, FloatTensor, LongTensor
+from torch import nn, Tensor
 from typing import Optional
 from transformers import DeformableDetrConfig
 from transformers.models.deformable_detr.modeling_deformable_detr import (
@@ -148,7 +147,6 @@ class DeformableDetrEncoder(DeformableDetrPreTrainedModel):
         if output_hidden_states is None: output_hidden_states = self.config.output_hidden_states
         if return_dict is None: return_dict = self.config.use_return_dict
 
-        # temporal_shapes = tuple(temporal_shapes)
         reference_points = self.get_reference_points(temporal_shapes, valid_ratios, device=inputs_embeds.device)
         hidden_states = nn.functional.dropout(inputs_embeds, p=self.dropout, training=self.training)
         encoder_states = () if output_hidden_states else None

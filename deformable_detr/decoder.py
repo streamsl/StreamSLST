@@ -1,12 +1,10 @@
 import torch
-import torch.nn.functional as F
-from torch import nn, Tensor, FloatTensor, LongTensor
+from torch import nn, Tensor
 from typing import Optional
 from transformers import DeformableDetrConfig
 from transformers.models.deformable_detr.modeling_deformable_detr import (
     ACT2FN, GradientCheckpointingLayer, 
-    DeformableDetrPreTrainedModel, DeformableDetrDecoderOutput,
-    BaseModelOutput, inverse_sigmoid
+    DeformableDetrPreTrainedModel, DeformableDetrDecoderOutput, inverse_sigmoid
 )
 from .attention import TemporalMSDA
 

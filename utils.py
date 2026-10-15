@@ -1,22 +1,7 @@
 import os
-import cv2
 import torch
 from typing import List, Dict, Union
 from config import *
-
-
-def get_video_info(video_path: str):
-    if not os.path.exists(video_path):
-        raise FileNotFoundError(f'Video file not found: {video_path}')
-
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened(): raise ValueError(f'Cannot open video: {video_path}')
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    video_duration = frame_count / fps if fps > 0 else 0
-    cap.release()
-    return fps, video_duration, frame_count
 
 
 def parse_vtt(vtt_path) -> List[Dict[str, Union[float, str]]]:
@@ -93,30 +78,6 @@ def cw_to_se(cw: torch.Tensor) -> torch.Tensor:
     w = torch.clamp(cw[..., 1], min=1e-6)
     box = [c - 0.5 * w, c + 0.5 * w]
     return torch.stack(box, dim=-1)
-
-
-def se_to_cw(se: torch.Tensor) -> torch.Tensor:
-    '''
-    Convert (start, end) in [0,1] to (center, width).
-    se: (N, 2) or (..., 2)
-    Returns: (..., 2) as (center, length)
-    '''
-    s = se[..., 0]
-    e = se[..., 1]
-    box = [0.5 * (s + e), torch.clamp(e - s, min=1e-6)]
-    return torch.stack(box, dim=-1)
-
-
-def ensure_cw_format(boxes: torch.Tensor) -> torch.Tensor:
-    '''
-    Ensure boxes are in (center, width) format. If input is (start, end), convert it.
-    Returns: (N, 2) as (center, width)
-    '''
-    if boxes.shape[-1] != 2: raise ValueError('Boxes must have shape (N, 2)')
-    s, e = boxes[:, 0], boxes[:, 1]
-    if (s <= e).all() and boxes.min() >= 0.0 and boxes.max() <= 1.0:
-        return se_to_cw(boxes)
-    return boxes
 
 
 def box_iou(pred_se: torch.Tensor, target_se: torch.Tensor) -> torch.Tensor:

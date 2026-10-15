@@ -5,11 +5,9 @@ from typing import List, Dict, Tuple
 from scipy.optimize import linear_sum_assignment
 
 from transformers.loss.loss_for_object_detection import (
-    HungarianMatcher, ImageLoss, 
-    _set_aux_loss, sigmoid_focal_loss,
-    is_accelerate_available
-) 
-from utils import box_iou, generalized_box_iou, cw_to_se
+    HungarianMatcher, ImageLoss, sigmoid_focal_loss, is_accelerate_available
+)
+from utils import generalized_box_iou, cw_to_se
 
 if is_accelerate_available():
     from accelerate import PartialState
@@ -282,19 +280,9 @@ class PDVCLoss(ImageLoss):
         target_boxes = torch.cat([t['boxes'][i] for t, (b, i) in zip(targets, indices)], dim=0) # [batch_size, num_matched, 2]
         loss_bbox = F.l1_loss(source_boxes, target_boxes, reduction='none')
         loss_giou = 1 - torch.diag(generalized_box_iou(cw_to_se(source_boxes), cw_to_se(target_boxes)))
-
-        # Compute the self IoU, which is the average IoU between all pairs of predicted boxes in a batch
-        # self_iou = torch.triu(box_iou(cw_to_se(source_boxes), cw_to_se(source_boxes))[0], diagonal=1)
-        # sizes = [len(v) for v in indices]
-        # self_iou = sum([ # Formula: sum of IoUs / (0.5 * n * (n-1)) for each batch element
-        #     # 1/2 for upper triangle & n - 1 because we don't compare box with itself 
-        #     c.split(sizes, -2)[i].sum() / (0.5 * sizes[i] * (sizes[i] - 1)) 
-        #     for i, c in enumerate(self_iou.split(sizes, -1))
-        # ])
         return {
             'loss_bbox': loss_bbox.sum() / num_boxes,
             'loss_giou': loss_giou.sum() / num_boxes,
-            # 'loss_self_iou': self_iou
         }
         
     
